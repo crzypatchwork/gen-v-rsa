@@ -1,6 +1,5 @@
-from os import environ
-import subprocess
 from flask import Flask, request
+import subprocess
 
 app = Flask(__name__)
 
