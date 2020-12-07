@@ -1,5 +1,6 @@
 from flask import Flask, request
 import subprocess
+import os 
 
 app = Flask(__name__)
 
@@ -7,41 +8,62 @@ app = Flask(__name__)
 
 @app.route('/gen')
 def gen_keys():
-    sk = subprocess.check_output(
-        "openssl genrsa -out private.pem 1024", shell=True)
-    pk = subprocess.check_output(
-        "openssl rsa -in private.pem -out public.pem -outform PEM -pubout", shell=True)
-    
-    print(pk)
-    # return bytestring
-    return pk 
 
+    try:
+        sk = subprocess.check_output("openssl genrsa -out private.pem 1024", shell=True)
+        pk = subprocess.check_output("openssl rsa -in private.pem -out public.pem -outform PEM -pubout", shell=True)
+        return { 'status' : 200 }
+    except:
+        return { 'status' : 500 }
 
 @app.route('/sha3', methods=['POST'])
 def sha3():
 
-    sha3 = subprocess.check_output(
-        "echo -n '{}' | openssl dgst -sha3-512".format(request.files['data'].read()), shell=True)
-    print(sha3)
+    sha3 = subprocess.check_output("echo -n '{}' | openssl dgst -sha3-512".format(request.files['data'].read()), shell=True)
     sha3 = str(sha3).split('= ')[1][:-3]
     subprocess.call("echo -n '{}' > hash".format(sha3), shell=True)
+
+    os.remove('hash')
+
     return sha3
 
-@app.route('/sign')
+@app.route('/sign', methods=['POST'])
 def sign_hash():
+
+    with open('hash', "wb") as file:
+        file.write(request.files['hash'].read())
+
     subprocess.call('openssl dgst -sha256 -sign private.pem -out hash.sig hash', shell=True)
     
-    #return bytestring
-    return { 'status' : 200 }
+    with open('hash.sig', 'rb') as file:
+        contents = file.read()   
 
-@app.route('/verify')
+    os.remove('hash')
+    os.remove('hash.sig')
+
+    return contents
+
+@app.route('/verify', methods=['POST'])
 def verify():
 
-    subprocess.call('openssl dgst -sha256 -verify public.pem -signature hash.sig hash', shell=True)
+    with open('hash', "wb") as file:
+        file.write(request.files['hash'].read())
 
-    # return bytestring
-    return { 'status' : 200 }
+    with open('hash.sig', "wb") as file:
+        file.write(request.files['sig'].read())    
+
+    res = subprocess.check_output('openssl dgst -sha256 -verify public.pem -signature hash.sig hash', shell=True)
+
+    os.remove('hash')
+    os.remove('hash.sig')
+
+    return { 'status' : res.decode("utf-8") }
+
+@app.route('/pk')
+def pk():
+
+    data = open('public.pem').read()    
+    return data
 
 if __name__ == '__main__':
-    from os import environ
-    app.run(debug=True, host='0.0.0.0', port=environ.get("PORT", 5000))
+    app.run(debug=True, host='0.0.0.0', port=5000)
