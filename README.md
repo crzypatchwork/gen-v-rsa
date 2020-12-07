@@ -20,6 +20,8 @@ python3 app.py
 
 commands
 ```
+curl http://localhost:5000/gen
+
 curl http://localhost:5000/pk > public.pem
 
 curl -X POST -H "Content-Type: multipart/form-data" -F "data=@example.txt" http://localhost:5000/sha3 > hash
